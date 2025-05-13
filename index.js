@@ -17,10 +17,19 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// MongoDB Connection
+// MongoDB Connection with detailed error logging
 mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('MongoDB bağlantısı başarılı'))
-  .catch(err => console.error('MongoDB bağlantı hatası:', err));
+  .then(() => {
+    console.log('MongoDB bağlantısı başarılı');
+    console.log('Bağlantı URL\'i:', process.env.MONGODB_URI.replace(/:([^:@]{8})[^:@]*@/, ':****@')); // Şifreyi gizle
+  })
+  .catch(err => {
+    console.error('MongoDB bağlantı hatası:');
+    console.error('Hata kodu:', err.code);
+    console.error('Hata mesajı:', err.message);
+    if (err.reason) console.error('Sebep:', err.reason);
+    console.error('Tam hata:', err);
+  });
 
 // Routes - admin route'ları önce gelmeli
 app.use('/api/admin', require('./routes/admin'));
@@ -39,7 +48,8 @@ app.use('/api/*', (req, res) => {
 app.get('/', (req, res) => {
   res.json({
     status: 'ok',
-    message: 'Fizyoterapist Randevu API çalışıyor'
+    message: 'Fizyoterapist Randevu API çalışıyor',
+    mongoStatus: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
   });
 });
 

@@ -7,6 +7,19 @@ const BlockedSlot = require('../models/BlockedSlot');
 // Yeni randevu oluştur
 router.post('/', async (req, res) => {
   try {
+    console.log('Randevu oluşturma isteği:', req.body);
+
+    // Request body validation
+    const requiredFields = ['patientName', 'patientEmail', 'patientPhone', 'appointmentDate', 'appointmentTime'];
+    const missingFields = requiredFields.filter(field => !req.body[field]);
+    if (missingFields.length > 0) {
+      console.error('Eksik alanlar:', missingFields);
+      return res.status(400).json({
+        success: false,
+        message: `Eksik alanlar: ${missingFields.join(', ')}`
+      });
+    }
+
     // 6 haneli basit bir kod üret
     let code;
     let exists = true;
@@ -14,9 +27,10 @@ router.post('/', async (req, res) => {
       code = Math.floor(100000 + Math.random() * 900000).toString();
       exists = await Appointment.findOne({ code });
     }
+
     // Tarih ve saat birleştirme
     const { appointmentDate, appointmentTime, ...rest } = req.body;
-    // appointmentDate artık doğrudan "YYYY-MM-DD" string
+    console.log('İşlenen randevu bilgileri:', { appointmentDate, appointmentTime, ...rest });
 
     // Aynı gün ve aynı saatte başka bir randevu var mı kontrol et
     const existing = await Appointment.findOne({
@@ -25,6 +39,7 @@ router.post('/', async (req, res) => {
       status: { $ne: 'cancelled' }
     });
     if (existing) {
+      console.log('Çakışan randevu bulundu:', existing);
       return res.status(400).json({
         success: false,
         message: 'Bu tarih ve saatte zaten bir randevu var. Lütfen başka bir saat seçin.'
@@ -38,13 +53,19 @@ router.post('/', async (req, res) => {
       code
     });
 
+    console.log('Kaydedilecek randevu:', appointment);
     await appointment.save();
+    console.log('Randevu başarıyla kaydedildi');
+
     let emailError = null;
     try {
       await sendAppointmentEmail(appointment, 'created');
+      console.log('Randevu e-postası gönderildi');
     } catch (err) {
+      console.error('E-posta gönderimi hatası:', err);
       emailError = err.message || 'E-posta gönderilemedi';
     }
+
     res.status(201).json({
       success: true,
       data: appointment,
@@ -52,7 +73,20 @@ router.post('/', async (req, res) => {
       emailError
     });
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message });
+    console.error('Randevu oluşturma hatası:', error);
+    console.error('Hata detayları:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    });
+    res.status(400).json({ 
+      success: false, 
+      message: error.message,
+      error: {
+        name: error.name,
+        details: error.message
+      }
+    });
   }
 });
 
