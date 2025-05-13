@@ -7,10 +7,11 @@ const app = express();
 
 // CORS ayarları
 app.use(cors({
-  origin: ['https://physiotherapist-frontend.vercel.app', 'http://localhost:5173'],
+  origin: '*',  // Geçici olarak tüm originlere izin veriyoruz
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range']
 }));
 
 // Body parser middleware
