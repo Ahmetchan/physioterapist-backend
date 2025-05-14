@@ -8,6 +8,7 @@ const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
 const { authenticateAdmin } = require('../middleware/auth');
 const BlockedSlot = require('../models/BlockedSlot');
+const mongoose = require('mongoose');
 
 // Admin girişi
 router.post('/login', async (req, res) => {
@@ -206,17 +207,42 @@ router.delete('/appointments/:id', authenticateAdmin, async (req, res) => {
 router.get('/settings', async (req, res) => {
   try {
     console.log('Settings endpoint çağrıldı');
+    // MongoDB bağlantı durumunu kontrol et
+    if (mongoose.connection.readyState !== 1) {
+      console.error('MongoDB bağlantısı aktif değil. ReadyState:', mongoose.connection.readyState);
+      return res.status(500).json({ 
+        message: 'Veritabanı bağlantısı kurulamadı',
+        mongoStatus: mongoose.connection.readyState
+      });
+    }
+
+    console.log('MongoDB bağlantısı aktif, Settings aranıyor...');
     let settings = await Settings.findOne();
+    
+    console.log('Settings bulundu mu?', settings ? 'Evet' : 'Hayır');
+    
     if (!settings) {
       console.log('Settings bulunamadı, yeni oluşturuluyor');
-      settings = new Settings();
+      settings = new Settings({
+        siteTitle: 'Fizyoterapist Randevu Sistemi',
+        primaryColor: '#007bff',
+        secondaryColor: '#6c757d',
+        fontFamily: 'Arial, sans-serif',
+        aboutContent: '<p>Hakkımda sayfası içeriği burada görüntülenecek.</p>',
+        backgroundImage: ''
+      });
       await settings.save();
+      console.log('Yeni Settings kaydedildi');
     }
+    
     console.log('Settings gönderiliyor:', settings);
-    res.json(settings);
+    return res.json(settings);
   } catch (error) {
     console.error('Settings hatası:', error);
-    res.status(500).json({ message: error.message });
+    return res.status(500).json({ 
+      message: error.message,
+      stack: process.env.NODE_ENV === 'production' ? null : error.stack 
+    });
   }
 });
 

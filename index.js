@@ -5,27 +5,32 @@ const mongoose = require('mongoose');
 
 const app = express();
 
-// CORS ayarları - Daha kapsamlı yapılandırma
+// Tüm originlere izin ver - En basit yapılandırma
 app.use(cors({
-  origin: ['https://physiotherapist-frontend.vercel.app', 'http://localhost:5173', 'https://physiotherapist-frontend.vercel.app/admin'],
+  origin: '*', // Tüm domainlere izin ver
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-  credentials: true,
-  preflightContinue: false,
-  optionsSuccessStatus: 204,
-  maxAge: 86400 // 24 saat
+  credentials: true
 }));
 
-// Her isteğe CORS headerları ekle
+// Her isteğe manuel CORS headerları ekle
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
+  // CORS debug log
+  console.log(`${new Date().toISOString()} - Request origin: ${req.headers.origin || 'No origin'}`);
+  console.log(`${new Date().toISOString()} - Setting CORS headers`);
+  
+  // OPTIONS isteği için erken yanıt ver
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
   next();
 });
-
-// OPTIONS istekleri için ayrıca bir handler
-app.options('*', cors());
 
 // Body parser middleware
 app.use(express.json());
@@ -57,6 +62,11 @@ mongoose.connect(process.env.MONGODB_URI)
     console.error('MongoDB bağlantı hatası:', err);
   });
 
+// MongoDB bağlantı durumunu kontrol et
+mongoose.connection.on('connected', () => console.log('MongoDB bağlantısı başarılı'));
+mongoose.connection.on('error', err => console.error('MongoDB bağlantı hatası:', err));
+mongoose.connection.on('disconnected', () => console.log('MongoDB bağlantısı kesildi'));
+
 // Routes
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/appointments', require('./routes/appointments'));
@@ -68,7 +78,16 @@ app.get('/test', (req, res) => {
 
 // Health check endpoint
 app.get('/', (req, res) => {
-  res.json({ status: 'ok', message: 'API çalışıyor', mongoStatus: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected' });
+  res.json({ 
+    status: 'ok', 
+    message: 'API çalışıyor', 
+    mongoStatus: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+    config: {
+      nodeEnv: process.env.NODE_ENV || 'development',
+      mongoUri: process.env.MONGODB_URI ? 'SET' : 'NOT_SET',
+      port: process.env.PORT || 5000
+    }
+  });
 });
 
 // Catch-all route
