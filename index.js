@@ -5,15 +5,29 @@ const mongoose = require('mongoose');
 
 const app = express();
 
-
-// CORS ayarları
+// CORS ayarları - Daha kapsamlı yapılandırma
 app.use(cors({
-  origin: '*',  // Geçici olarak tüm originlere izin veriyoruz
-  credentials: false, // Bunu false yapın
+  origin: '*', // Tüm domainlere izin ver - production için
+  credentials: false,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
   exposedHeaders: ['Content-Range', 'X-Content-Range']
 }));
+
+// CORS Pre-flight OPTIONS istekleri için
+app.options('*', cors());
+
+// Tüm isteklere manuel CORS header'ları ekle
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  // Preflight isteğini hemen yanıtla
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  next();
+});
 
 // Body parser middleware
 app.use(express.json());
@@ -59,4 +73,4 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server ${PORT} portunda çalışıyor`);
   console.log('API URL:', `http://localhost:${PORT}/api`);
-}); 
+});
