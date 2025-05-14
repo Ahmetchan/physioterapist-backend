@@ -31,6 +31,17 @@ app.options('*', cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Duplike API prefix (/api/api/) route handler
+app.use((req, res, next) => {
+  // /api/api/ şeklinde duplike path'leri düzelt
+  if (req.path.startsWith('/api/api/')) {
+    const newPath = req.path.replace('/api/api/', '/api/');
+    console.log(`URL düzeltildi: ${req.path} -> ${newPath}`);
+    req.url = newPath;
+  }
+  next();
+});
+
 // Tüm istekleri logla
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
