@@ -2,6 +2,7 @@ const moment = require('moment');
 const Appointment = require('../models/Appointment');
 const Settings = require('../models/Settings');
 const { sendAppointmentConfirmation } = require('../utils/emailService');
+const BlockedSlot = require('../models/BlockedSlot');
 
 class AppointmentService {
     // Randevu zamanının geçerli olup olmadığını kontrol et
@@ -25,47 +26,91 @@ class AppointmentService {
     // Müsait saatleri getir
     async getAvailableTimeSlots(date) {
         try {
+            console.log('Müsait saatler hesaplanıyor, tarih:', date);
+            
             // Ayarlardan çalışma saatlerini al
             const settings = await Settings.findOne();
             if (!settings || !settings.workingHours) {
+                console.error('Çalışma saatleri ayarları bulunamadı');
                 throw new Error('Çalışma saatleri ayarlanmamış');
             }
 
-            const { workingHours } = settings;
-            const selectedDate = moment(date).startOf('day');
+            const dayOfWeek = moment(date).format('dddd').toLowerCase();
+            console.log('Haftanın günü:', dayOfWeek);
+            
+            // O günün çalışma saatleri
+            const daySettings = settings.workingHours[dayOfWeek];
+            if (!daySettings || daySettings.start === '00:00' && daySettings.end === '00:00') {
+                console.log('Bu gün için çalışma saati bulunmuyor');
+                return [];
+            }
+
+            const [startHour, startMinute] = daySettings.start.split(':').map(Number);
+            const [endHour, endMinute] = daySettings.end.split(':').map(Number);
+            
+            console.log('Çalışma saatleri:', daySettings.start, '-', daySettings.end);
+
+            const selectedDate = moment(date, 'YYYY-MM-DD').startOf('day');
             const now = moment();
             const availableSlots = [];
 
-            // Seçilen gün için tüm zaman slotlarını oluştur
-            for (let hour = workingHours.start; hour < workingHours.end; hour++) {
-                for (let minute of [0, 30]) { // 30'ar dakikalık slotlar
-                    const slotTime = moment(selectedDate)
-                        .hour(hour)
-                        .minute(minute)
-                        .second(0);
+            console.log('Seçilen tarih:', selectedDate.format('YYYY-MM-DD'));
+            console.log('Şimdiki zaman:', now.format('YYYY-MM-DD HH:mm'));
 
-                    // Geçmiş zaman veya 1 saatten yakın slotları filtrele
-                    if (slotTime.isBefore(now) || slotTime.diff(now, 'hours') < 1) {
-                        continue;
-                    }
+            // Tüm açık saatleri ekle (09:00-17:00 arası 30 dakikalık slotlar)
+            let currentSlot = moment(selectedDate).hour(startHour).minute(startMinute);
+            const endTime = moment(selectedDate).hour(endHour).minute(endMinute);
 
-                    // Mevcut randevuları kontrol et
-                    const existingAppointment = await Appointment.findOne({
-                        date: {
-                            $gte: slotTime.toDate(),
-                            $lt: moment(slotTime).add(30, 'minutes').toDate()
-                        }
-                    });
-
-                    if (!existingAppointment) {
-                        availableSlots.push(slotTime.format('HH:mm'));
-                    }
-                }
+            while (currentSlot < endTime) {
+                availableSlots.push(currentSlot.format('HH:mm'));
+                currentSlot = moment(currentSlot).add(30, 'minutes');
             }
 
-            return availableSlots;
+            console.log('Potansiyel tüm müsait saatler:', availableSlots);
+
+            // Dolu saatleri getir
+            const occupiedQuery = {
+                appointmentDate: date,
+                status: { $ne: 'cancelled' }
+            };
+            
+            console.log('Dolu saatler sorgusu:', JSON.stringify(occupiedQuery));
+            
+            const appointments = await Appointment.find(occupiedQuery);
+            console.log(`${appointments.length} adet dolu randevu bulundu`);
+            
+            const blockedSlots = await BlockedSlot.find({ date });
+            console.log(`${blockedSlots.length} adet bloke edilmiş saat bulundu`);
+
+            // Dolu saatleri çıkar
+            const occupiedTimes = [
+                ...appointments.map(a => a.appointmentTime),
+                ...blockedSlots.map(b => b.time)
+            ];
+            
+            console.log('Dolu saatler:', occupiedTimes);
+
+            // Geçmiş saatleri çıkar
+            const availableTimesFiltered = availableSlots.filter(timeStr => {
+                // Tarih ve saati birleştir
+                const slotDateTime = moment(`${date} ${timeStr}`, 'YYYY-MM-DD HH:mm');
+                
+                // Dolu mu?
+                const isOccupied = occupiedTimes.includes(timeStr);
+                
+                // Geçmiş zaman mı?
+                const isPast = slotDateTime.isBefore(now);
+                
+                // Şu andan 1 saatten daha yakın mı?
+                const isTooSoon = slotDateTime.diff(now, 'hours') < 1;
+                
+                return !isOccupied && !isPast && !isTooSoon;
+            });
+
+            console.log('Sonuç müsait saatler:', availableTimesFiltered);
+            return availableTimesFiltered;
         } catch (error) {
-            console.error('Müsait saatler getirilirken hata:', error);
+            console.error('Müsait saatler hesaplanırken hata:', error);
             throw error;
         }
     }

@@ -132,9 +132,12 @@ router.get('/blocked-slots/all', authenticateAdmin, async (req, res) => {
 // Tüm randevuları getir
 router.get('/appointments', authenticateAdmin, async (req, res) => {
   try {
+    console.log('Admin: Tüm randevuları getirme isteği alındı');
     const appointments = await Appointment.find().sort({ appointmentDate: 1 });
+    console.log(`${appointments.length} adet randevu bulundu`);
     res.json(appointments);
   } catch (error) {
+    console.error('Admin: Randevuları getirme hatası:', error);
     res.status(500).json({ message: error.message });
   }
 });

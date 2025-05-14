@@ -29,8 +29,7 @@ const AppointmentSchema = new mongoose.Schema({
   code: {
     type: String,
     required: true,
-    unique: true,
-    index: true
+    unique: true
   },
   notes: {
     type: String
@@ -38,5 +37,8 @@ const AppointmentSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
+
+// Code alanı için index oluştur
+AppointmentSchema.index({ code: 1 }, { unique: true });
 
 module.exports = mongoose.model('Appointment', AppointmentSchema); 
