@@ -205,13 +205,17 @@ router.delete('/appointments/:id', authenticateAdmin, async (req, res) => {
 // Ayarları getir (herkese açık)
 router.get('/settings', async (req, res) => {
   try {
+    console.log('Settings endpoint çağrıldı');
     let settings = await Settings.findOne();
     if (!settings) {
+      console.log('Settings bulunamadı, yeni oluşturuluyor');
       settings = new Settings();
       await settings.save();
     }
+    console.log('Settings gönderiliyor:', settings);
     res.json(settings);
   } catch (error) {
+    console.error('Settings hatası:', error);
     res.status(500).json({ message: error.message });
   }
 });

@@ -5,10 +5,11 @@ const mongoose = require('mongoose');
 
 const app = express();
 
+
 // CORS ayarları
 app.use(cors({
   origin: '*',  // Geçici olarak tüm originlere izin veriyoruz
-  credentials: true,
+  credentials: false, // Bunu false yapın
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   exposedHeaders: ['Content-Range', 'X-Content-Range']
