@@ -5,13 +5,24 @@ const mongoose = require('mongoose');
 
 const app = express();
 
-// CORS ayarları - En basit yapılandırma
+// CORS ayarları - Daha kapsamlı yapılandırma
 app.use(cors({
-  origin: '*',
-  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+  origin: ['https://physiotherapist-frontend.vercel.app', 'http://localhost:5173', 'https://physiotherapist-frontend.vercel.app/admin'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  credentials: true,
   preflightContinue: false,
-  optionsSuccessStatus: 204
+  optionsSuccessStatus: 204,
+  maxAge: 86400 // 24 saat
 }));
+
+// Her isteğe CORS headerları ekle
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  next();
+});
 
 // OPTIONS istekleri için ayrıca bir handler
 app.options('*', cors());
